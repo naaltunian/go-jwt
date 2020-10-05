@@ -28,7 +28,7 @@ func login(w http.ResponseWriter, r *http.Request) {
 }
 
 func protectedEndpoint(w http.ResponseWriter, r *http.Request) {
-
+	log.Println("protected")
 }
 
 func TokenVerifyMiddleWare(next http.HandlerFunc) http.HandlerFunc {

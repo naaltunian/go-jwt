@@ -10,6 +10,7 @@ import (
 
 	"github.com/gorilla/mux"
 	_ "github.com/lib/pq"
+	"golang.org/x/crypto/bcrypt"
 )
 
 type User struct {
@@ -94,12 +95,24 @@ func signup(w http.ResponseWriter, r *http.Request) {
 		log.Println(err)
 	}
 
-	log.Println(user)
 	err = validateUser(user)
 	if err != nil {
 		log.Println(err)
-		responseWithError(w, 400, err.Error())
+		responseWithError(w, http.StatusBadRequest, err.Error())
 		return
+	}
+
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(user.Password), 10)
+	if err != nil {
+		log.Println("error hashing password:", err)
+		responseWithError(w, http.StatusInternalServerError, err.Error())
+	}
+
+	user.Password = string(hashedPassword)
+
+	err = saveUser(user)
+	if err != nil {
+		responseWithError(w, http.StatusInternalServerError, err.Error())
 	}
 
 	response := map[string]string{"response": "user created"}
@@ -115,6 +128,17 @@ func protectedEndpoint(w http.ResponseWriter, r *http.Request) {
 }
 
 func TokenVerifyMiddleWare(next http.HandlerFunc) http.HandlerFunc {
+	return nil
+}
+
+func saveUser(user User) error {
+	stmt := "insert into users (email, password) values ($1, $2) RETURNING id;"
+
+	err := db.QueryRow(stmt, user.Email, user.Password).Scan(&user.ID)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 

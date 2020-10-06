@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strings"
 
 	"github.com/dgrijalva/jwt-go"
 	"github.com/gorilla/mux"
@@ -151,12 +152,16 @@ func login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// password := user.Password
-	// stmt
-	// db.QueryRow()
 	userFromDB, err := queryUser(user.Email)
-	log.Println(userFromDB)
 	if err != nil {
+		responseWithError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	hashedPassword := userFromDB.Password
+	err = bcrypt.CompareHashAndPassword([]byte(hashedPassword), []byte(user.Password))
+	if err != nil {
+		err = errors.New("invalid credentials")
 		responseWithError(w, http.StatusBadRequest, err.Error())
 		return
 	}
@@ -190,7 +195,34 @@ func protectedEndpoint(w http.ResponseWriter, r *http.Request) {
 }
 
 func TokenVerifyMiddleWare(next http.HandlerFunc) http.HandlerFunc {
-	return nil
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		authHeader := r.Header.Get("Authorization")
+		if authHeader == "" {
+			err := errors.New("No auth token supplied")
+			responseWithError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+
+		authToken := strings.Split(authHeader, " ")[1]
+		token, err := jwt.Parse(authToken, func(token *jwt.Token) (interface{}, error) {
+			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+				err := errors.New("Error parsing token")
+				return nil, err
+			}
+			return []byte("secret"), nil
+		})
+		if err != nil {
+			responseWithError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		if token.Valid {
+			next.ServeHTTP(w, r)
+		} else {
+			err := errors.New("Invalid token")
+			responseWithError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+	})
 }
 
 func saveUser(user User) error {

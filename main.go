@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/http"
 
+	"github.com/dgrijalva/jwt-go"
 	"github.com/gorilla/mux"
 	_ "github.com/lib/pq"
 	"golang.org/x/crypto/bcrypt"
@@ -71,6 +72,24 @@ func connectToDB() *sql.DB {
 	return db
 }
 
+func GenerateToken(user User) (string, error) {
+	var err error
+	secret := "secret"
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+		"email": user.Email,
+		"iss":   "course",
+	})
+
+	tokenString, err := token.SignedString([]byte(secret))
+	if err != nil {
+		log.Println(err)
+		return "", err
+	}
+
+	return tokenString, nil
+}
+
 func validateUser(user User) error {
 
 	// TODO: add email validation
@@ -120,7 +139,17 @@ func signup(w http.ResponseWriter, r *http.Request) {
 }
 
 func login(w http.ResponseWriter, r *http.Request) {
-	log.Println("login")
+	var user User
+
+	json.NewDecoder(r.Body).Decode(&user)
+
+	token, err := GenerateToken(user)
+	if err != nil {
+		responseWithError(w, http.StatusInternalServerError, err.Error())
+	}
+
+	response := map[string]string{"token": token}
+	responseWithJSON(w, http.StatusOK, response)
 }
 
 func protectedEndpoint(w http.ResponseWriter, r *http.Request) {

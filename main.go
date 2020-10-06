@@ -92,13 +92,13 @@ func GenerateToken(user User) (string, error) {
 
 func validateUser(user User) error {
 
-	// TODO: add email validation
+	// TODO: add more email validation
 	if user.Email == "" {
 		err := errors.New("Invalid email")
 		return err
 	}
 
-	// TODO: add password validation
+	// TODO: add more password validation
 	if user.Password == "" {
 		err := errors.New("Invalid password")
 		return err
@@ -125,6 +125,7 @@ func signup(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Println("error hashing password:", err)
 		responseWithError(w, http.StatusInternalServerError, err.Error())
+		return
 	}
 
 	user.Password = string(hashedPassword)
@@ -132,6 +133,7 @@ func signup(w http.ResponseWriter, r *http.Request) {
 	err = saveUser(user)
 	if err != nil {
 		responseWithError(w, http.StatusInternalServerError, err.Error())
+		return
 	}
 
 	response := map[string]string{"response": "user created"}
@@ -143,13 +145,42 @@ func login(w http.ResponseWriter, r *http.Request) {
 
 	json.NewDecoder(r.Body).Decode(&user)
 
+	err := validateUser(user)
+	if err != nil {
+		responseWithError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	// password := user.Password
+	// stmt
+	// db.QueryRow()
+	userFromDB, err := queryUser(user)
+	if err != nil {
+		responseWithError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
 	token, err := GenerateToken(user)
 	if err != nil {
 		responseWithError(w, http.StatusInternalServerError, err.Error())
+		return
 	}
 
 	response := map[string]string{"token": token}
 	responseWithJSON(w, http.StatusOK, response)
+}
+
+func queryUser(user User) (User, error) {
+	stmt := "select * from users where email = $1;"
+	// password := user.Password
+
+	row := db.QueryRow(stmt, user.Email)
+	err := row.Scan(&user.ID, &user.Email, &user.Password)
+	if err != nil {
+		return user, err
+	}
+
+	return user, nil
 }
 
 func protectedEndpoint(w http.ResponseWriter, r *http.Request) {

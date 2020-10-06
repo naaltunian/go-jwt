@@ -154,7 +154,8 @@ func login(w http.ResponseWriter, r *http.Request) {
 	// password := user.Password
 	// stmt
 	// db.QueryRow()
-	userFromDB, err := queryUser(user)
+	userFromDB, err := queryUser(user.Email)
+	log.Println(userFromDB)
 	if err != nil {
 		responseWithError(w, http.StatusBadRequest, err.Error())
 		return
@@ -170,11 +171,12 @@ func login(w http.ResponseWriter, r *http.Request) {
 	responseWithJSON(w, http.StatusOK, response)
 }
 
-func queryUser(user User) (User, error) {
+func queryUser(email string) (User, error) {
+	var user User
 	stmt := "select * from users where email = $1;"
 	// password := user.Password
 
-	row := db.QueryRow(stmt, user.Email)
+	row := db.QueryRow(stmt, email)
 	err := row.Scan(&user.ID, &user.Email, &user.Password)
 	if err != nil {
 		return user, err

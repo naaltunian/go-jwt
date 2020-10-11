@@ -7,6 +7,7 @@ import (
 	"os"
 
 	_ "github.com/lib/pq"
+	"github.com/naaltunian/go-jwt/models"
 )
 
 var (
@@ -16,14 +17,6 @@ var (
 	password string
 	dbname   string
 )
-
-// const (
-// 	host     = "localhost"
-// 	port     = 5432
-// 	user     = "postgres"
-// 	password = "admin"
-// 	dbname   = "go-jwt"
-// )
 
 var DB *sql.DB
 
@@ -76,4 +69,29 @@ func ConnectToDB() {
 
 	log.Println("Connected to DB")
 	DB = db
+}
+
+func SaveUser(user models.User) error {
+	stmt := "insert into users (email, password) values ($1, $2) RETURNING id;"
+
+	err := DB.QueryRow(stmt, user.Email, user.Password).Scan(&user.ID)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func QueryUser(email string) (models.User, error) {
+	var user models.User
+	stmt := "select * from users where email = $1;"
+	// password := user.Password
+
+	row := DB.QueryRow(stmt, email)
+	err := row.Scan(&user.ID, &user.Email, &user.Password)
+	if err != nil {
+		return user, err
+	}
+
+	return user, nil
 }

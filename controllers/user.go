@@ -19,6 +19,8 @@ func Signup(w http.ResponseWriter, r *http.Request) {
 	err := json.NewDecoder(r.Body).Decode(&user)
 	if err != nil {
 		log.Println(err)
+		utils.ResponseWithError(w, http.StatusInternalServerError, err.Error())
+		return
 	}
 
 	err = user.ValidateUser()

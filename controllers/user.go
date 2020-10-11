@@ -22,7 +22,7 @@ func Signup(w http.ResponseWriter, r *http.Request) {
 		log.Println(err)
 	}
 
-	err = validateUser(user)
+	err = user.ValidateUser()
 	if err != nil {
 		log.Println(err)
 		utils.ResponseWithError(w, http.StatusBadRequest, err.Error())
@@ -53,7 +53,7 @@ func Login(w http.ResponseWriter, r *http.Request) {
 
 	json.NewDecoder(r.Body).Decode(&user)
 
-	err := validateUser(user)
+	err := user.ValidateUser()
 	if err != nil {
 		utils.ResponseWithError(w, http.StatusBadRequest, err.Error())
 		return

@@ -1,7 +1,6 @@
 package main
 
 import (
-	"errors"
 	"log"
 	"net/http"
 
@@ -9,7 +8,6 @@ import (
 	_ "github.com/lib/pq"
 	"github.com/naaltunian/go-jwt/controllers"
 	"github.com/naaltunian/go-jwt/driver"
-	"github.com/naaltunian/go-jwt/models"
 )
 
 func main() {
@@ -25,20 +23,4 @@ func main() {
 
 	log.Println("Starting server on port 8080")
 	log.Fatal(http.ListenAndServe(":8080", router))
-}
-
-func validateUser(user models.User) error {
-
-	// TODO: add more email validation
-	if user.Email == "" {
-		err := errors.New("Invalid email")
-		return err
-	}
-
-	// TODO: add more password validation
-	if user.Password == "" {
-		err := errors.New("Invalid password")
-		return err
-	}
-	return nil
 }

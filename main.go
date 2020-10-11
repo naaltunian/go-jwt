@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"log"
 	"net/http"
 	"strings"
@@ -12,14 +11,17 @@ import (
 	"github.com/dgrijalva/jwt-go"
 	"github.com/gorilla/mux"
 	_ "github.com/lib/pq"
+	"github.com/naaltunian/go-jwt/driver"
+	"github.com/naaltunian/go-jwt/models"
+	"github.com/naaltunian/go-jwt/utils"
 	"golang.org/x/crypto/bcrypt"
 )
 
-type User struct {
-	ID       int    `json:"id"`
-	Email    string `json:"email"`
-	Password string `json:"password"`
-}
+// type User struct {
+// 	ID       int    `json:"id"`
+// 	Email    string `json:"email"`
+// 	Password string `json:"password"`
+// }
 
 type JWT struct {
 	Token string `json:"token"`
@@ -29,20 +31,20 @@ type Error struct {
 	Message string `json:"message"`
 }
 
-const (
-	host     = "localhost"
-	port     = 5432
-	user     = "postgres"
-	password = "admin"
-	dbname   = "go-jwt"
-)
+// const (
+// 	host     = "localhost"
+// 	port     = 5432
+// 	user     = "postgres"
+// 	password = "admin"
+// 	dbname   = "go-jwt"
+// )
 
 var db *sql.DB
 
 func main() {
 
-	db = connectToDB()
-	defer db.Close()
+	driver.ConnectToDB()
+	defer driver.DB.Close()
 
 	router := mux.NewRouter()
 
@@ -54,26 +56,26 @@ func main() {
 	log.Fatal(http.ListenAndServe(":8080", router))
 }
 
-func connectToDB() *sql.DB {
-	psqlInfo := fmt.Sprintf("host=%s port=%d user=%s "+
-		"password=%s dbname=%s sslmode=disable",
-		host, port, user, password, dbname)
+// func connectToDB() *sql.DB {
+// 	psqlInfo := fmt.Sprintf("host=%s port=%d user=%s "+
+// 		"password=%s dbname=%s sslmode=disable",
+// 		host, port, user, password, dbname)
 
-	db, err := sql.Open("postgres", psqlInfo)
-	if err != nil {
-		log.Println("Error connecting to db:", err)
-	}
+// 	db, err := sql.Open("postgres", psqlInfo)
+// 	if err != nil {
+// 		log.Println("Error connecting to db:", err)
+// 	}
 
-	err = db.Ping()
-	if err != nil {
-		log.Fatal("Error pinging DB", err)
-	}
+// 	err = db.Ping()
+// 	if err != nil {
+// 		log.Fatal("Error pinging DB", err)
+// 	}
 
-	log.Println("Connected to DB")
-	return db
-}
+// 	log.Println("Connected to DB")
+// 	return db
+// }
 
-func GenerateToken(user User) (string, error) {
+func GenerateToken(user models.User) (string, error) {
 	var err error
 	secret := "secret"
 
@@ -91,7 +93,7 @@ func GenerateToken(user User) (string, error) {
 	return tokenString, nil
 }
 
-func validateUser(user User) error {
+func validateUser(user models.User) error {
 
 	// TODO: add more email validation
 	if user.Email == "" {
@@ -108,7 +110,7 @@ func validateUser(user User) error {
 }
 
 func signup(w http.ResponseWriter, r *http.Request) {
-	var user User
+	var user models.User
 
 	err := json.NewDecoder(r.Body).Decode(&user)
 	if err != nil {
@@ -118,14 +120,14 @@ func signup(w http.ResponseWriter, r *http.Request) {
 	err = validateUser(user)
 	if err != nil {
 		log.Println(err)
-		responseWithError(w, http.StatusBadRequest, err.Error())
+		utils.ResponseWithError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(user.Password), 10)
 	if err != nil {
 		log.Println("error hashing password:", err)
-		responseWithError(w, http.StatusInternalServerError, err.Error())
+		utils.ResponseWithError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
@@ -133,28 +135,28 @@ func signup(w http.ResponseWriter, r *http.Request) {
 
 	err = saveUser(user)
 	if err != nil {
-		responseWithError(w, http.StatusInternalServerError, err.Error())
+		utils.ResponseWithError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
 	response := map[string]string{"response": "user created"}
-	responseWithJSON(w, 201, response)
+	utils.ResponseWithJSON(w, 201, response)
 }
 
 func login(w http.ResponseWriter, r *http.Request) {
-	var user User
+	var user models.User
 
 	json.NewDecoder(r.Body).Decode(&user)
 
 	err := validateUser(user)
 	if err != nil {
-		responseWithError(w, http.StatusBadRequest, err.Error())
+		utils.ResponseWithError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
 	userFromDB, err := queryUser(user.Email)
 	if err != nil {
-		responseWithError(w, http.StatusBadRequest, err.Error())
+		utils.ResponseWithError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
@@ -162,22 +164,22 @@ func login(w http.ResponseWriter, r *http.Request) {
 	err = bcrypt.CompareHashAndPassword([]byte(hashedPassword), []byte(user.Password))
 	if err != nil {
 		err = errors.New("invalid credentials")
-		responseWithError(w, http.StatusBadRequest, err.Error())
+		utils.ResponseWithError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
 	token, err := GenerateToken(user)
 	if err != nil {
-		responseWithError(w, http.StatusInternalServerError, err.Error())
+		utils.ResponseWithError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
 	response := map[string]string{"token": token}
-	responseWithJSON(w, http.StatusOK, response)
+	utils.ResponseWithJSON(w, http.StatusOK, response)
 }
 
-func queryUser(email string) (User, error) {
-	var user User
+func queryUser(email string) (models.User, error) {
+	var user models.User
 	stmt := "select * from users where email = $1;"
 	// password := user.Password
 
@@ -199,7 +201,7 @@ func TokenVerifyMiddleWare(next http.HandlerFunc) http.HandlerFunc {
 		authHeader := r.Header.Get("Authorization")
 		if authHeader == "" {
 			err := errors.New("No auth token supplied")
-			responseWithError(w, http.StatusBadRequest, err.Error())
+			utils.ResponseWithError(w, http.StatusBadRequest, err.Error())
 			return
 		}
 
@@ -212,20 +214,20 @@ func TokenVerifyMiddleWare(next http.HandlerFunc) http.HandlerFunc {
 			return []byte("secret"), nil
 		})
 		if err != nil {
-			responseWithError(w, http.StatusBadRequest, err.Error())
+			utils.ResponseWithError(w, http.StatusBadRequest, err.Error())
 			return
 		}
 		if token.Valid {
 			next.ServeHTTP(w, r)
 		} else {
 			err := errors.New("Invalid token")
-			responseWithError(w, http.StatusBadRequest, err.Error())
+			utils.ResponseWithError(w, http.StatusBadRequest, err.Error())
 			return
 		}
 	})
 }
 
-func saveUser(user User) error {
+func saveUser(user models.User) error {
 	stmt := "insert into users (email, password) values ($1, $2) RETURNING id;"
 
 	err := db.QueryRow(stmt, user.Email, user.Password).Scan(&user.ID)
@@ -234,19 +236,4 @@ func saveUser(user User) error {
 	}
 
 	return nil
-}
-
-func responseWithJSON(w http.ResponseWriter, code int, payload interface{}) {
-	response, err := json.Marshal(payload)
-	if err != nil {
-		log.Println("Error marshaling json", err)
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(code)
-	w.Write(response)
-}
-
-func responseWithError(w http.ResponseWriter, code int, message string) {
-	responseWithJSON(w, code, map[string]string{"error": message})
 }

@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	"github.com/dgrijalva/jwt-go"
-	"github.com/naaltunian/go-jwt/driver"
 	"github.com/naaltunian/go-jwt/models"
 	"github.com/naaltunian/go-jwt/utils"
 	"golang.org/x/crypto/bcrypt"
@@ -38,7 +37,7 @@ func Signup(w http.ResponseWriter, r *http.Request) {
 
 	user.Password = string(hashedPassword)
 
-	err = driver.SaveUser(user)
+	err = user.SaveUser()
 	if err != nil {
 		utils.ResponseWithError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -59,7 +58,7 @@ func Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userFromDB, err := driver.QueryUser(user.Email)
+	userFromDB, err := user.QueryUser()
 	if err != nil {
 		utils.ResponseWithError(w, http.StatusBadRequest, err.Error())
 		return

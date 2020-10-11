@@ -2,6 +2,8 @@ package models
 
 import (
 	"errors"
+	"regexp"
+	"unicode"
 
 	"github.com/naaltunian/go-jwt/driver"
 )
@@ -14,15 +16,13 @@ type User struct {
 
 func (u User) ValidateUser() error {
 
-	// TODO: add more email validation
-	if u.Email == "" {
-		err := errors.New("Invalid email")
+	err := validateEmail(u.Email)
+	if err != nil {
 		return err
 	}
 
-	// TODO: add more password validation
-	if u.Password == "" {
-		err := errors.New("Invalid password")
+	err = validatePassword(u.Password)
+	if err != nil {
 		return err
 	}
 	return nil
@@ -50,4 +50,43 @@ func (u User) QueryUser() (User, error) {
 	}
 
 	return user, nil
+}
+
+func validateEmail(email string) error {
+	var emailRegex = regexp.MustCompile("^[a-zA-Z0-9.!#$%&'*+\\/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$")
+	isValid := emailRegex.MatchString(email)
+
+	if !isValid {
+		err := errors.New("invalid email format")
+		return err
+	}
+	return nil
+}
+
+func validatePassword(password string) error {
+	var (
+		hasUpper       = false
+		hasLower       = false
+		hasNumber      = false
+		hasSpecialChar = false
+	)
+
+	for _, char := range password {
+		switch {
+		case unicode.IsUpper(char):
+			hasUpper = true
+		case unicode.IsLower(char):
+			hasLower = true
+		case unicode.IsNumber(char):
+			hasNumber = true
+		case unicode.IsPunct(char) || unicode.IsSymbol(char):
+			hasSpecialChar = true
+		}
+	}
+
+	if len(password) < 8 || !hasUpper || !hasLower || !hasNumber || !hasSpecialChar {
+		err := errors.New("Password must have at least 8 characters, at least one uppercase character, a number, and a special character")
+		return err
+	}
+	return nil
 }
